@@ -113,7 +113,7 @@ export class Manager {
         this.findDependentFiles(this.rootFile)
     }
 
-    findDependentFiles(filePath: string, tryAppendTex = true) {
+    findDependentFiles(filePath: string) {
         let content = fs.readFileSync(filePath, 'utf-8')
         let rootDir = path.dirname(this.rootFile)
 
@@ -127,20 +127,22 @@ export class Manager {
             if (path.extname(inputFilePath) === '') {
                 inputFilePath += '.tex'
             }
-            if (this.texFiles.has(inputFilePath))
-                continue
-            if (fs.existsSync(inputFilePath)) {
+            if (!this.texFiles.has(inputFilePath)) {
                 this.texFiles.add(inputFilePath)
-                this.findDependentFiles(inputFilePath)
-            }
-            else {
-                inputFilePath += '.tex'
-                if (fs.existsSync(inputFilePath)) {
-                    this.texFiles.add(inputFilePath)
+                try {
                     this.findDependentFiles(inputFilePath)
+                } catch (err) {
+                    if (err.code === 'ENOENT' || err.code === 'EISDIR') {
+                        this.texFiles.delete(inputFilePath)
+                        if (path.extname(inputFilePath) !== '.tex') {
+                            inputFilePath += '.tex'
+                            this.texFiles.add(inputFilePath)
+                            this.findDependentFiles(inputFilePath)
+                        } else {
+                            this.extension.logger.addLogMessage(`File not found: ${inputFilePath}`)
+                        }
+                    }
                 }
-                else
-                    this.extension.logger.addLogMessage(`File not found: ${inputFilePath}`)
             }
         }
 
